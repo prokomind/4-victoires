@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#edf0f3" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0d1218" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="4 Victoires">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<title>4 Victoires</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* Une colonne pensée pour le pouce : bande des jours, anneau du jour, 4 cartes à cocher. Le bilan vit sur un second onglet. */
+  --bg:#edf0f3; --surface:#ffffff; --sunken:#e2e7ec; --ink:#141b23; --mute:#586573; --line:#d3dae2;
+  --phy:#c8401b; --men:#1f63d6; --spi:#7443d3; --fin:#0f8457; --on-cat:#ffffff;
+  --display:"Bricolage Grotesque",ui-rounded,"Segoe UI",system-ui,sans-serif;
+  --body:"Instrument Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0d1218; --surface:#161d26; --sunken:#212b37; --ink:#edf1f5; --mute:#94a1b0; --line:#2a3542;
+    --phy:#ff7a52; --men:#5a9bff; --spi:#a98bff; --fin:#33cc90; --on-cat:#0d1218;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0d1218; --surface:#161d26; --sunken:#212b37; --ink:#edf1f5; --mute:#94a1b0; --line:#2a3542;
+  --phy:#ff7a52; --men:#5a9bff; --spi:#a98bff; --fin:#33cc90; --on-cat:#0d1218;
+  color-scheme:dark;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{background:var(--bg);color:var(--ink);font:400 15px/1.4 var(--body);-webkit-tap-highlight-color:transparent;overscroll-behavior-y:none}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer;touch-action:manipulation}
+[hidden]{display:none!important}
+:where(a,button,input):focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+
+.app{max-width:480px;margin:0 auto;padding:max(12px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) max(32px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));display:flex;flex-direction:column;gap:14px}
+.view{display:flex;flex-direction:column;gap:14px}
+
+/* Barre du haut */
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.word{font:700 18px/1.1 var(--display);letter-spacing:-.01em}
+.sync{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--mute);margin-top:3px}
+.sync i{width:7px;height:7px;border-radius:50%;background:var(--mute);flex:none}
+.sync.ok i{background:var(--fin)}
+.sync.warn i{background:var(--phy)}
+.seg{display:flex;background:var(--sunken);border-radius:999px;padding:3px;flex:none}
+.seg a{display:grid;place-items:center;min-height:38px;padding:0 18px;border-radius:999px;font-weight:600;font-size:14px;color:var(--mute);text-decoration:none}
+.seg a[aria-current="page"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgb(0 0 0/.14)}
+
+/* Bande des jours */
+.strip{position:relative;display:flex;gap:4px;overflow-x:auto;scroll-snap-type:x proximity;scrollbar-width:none;margin:0 -16px;padding:2px 16px}
+.strip::-webkit-scrollbar{display:none}
+.pill{flex:0 0 48px;scroll-snap-align:center;display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 0 9px;border-radius:14px;border:1px solid transparent;background:none;color:var(--mute)}
+.pill .wd{font-size:11px;text-transform:uppercase;letter-spacing:.04em;line-height:1}
+.pill .dn{font:600 18px/1 var(--display);color:var(--ink);font-variant-numeric:tabular-nums}
+.pill .dots{display:flex;gap:2px}
+.pill .dots i{width:5px;height:5px;border-radius:50%;background:var(--line)}
+.pill .dots i.on{background:var(--c)}
+.pill.today .wd{color:var(--ink);font-weight:600}
+.pill[aria-current="date"]{background:var(--surface);border-color:var(--ink)}
+
+/* Résumé du jour */
+.hero{display:flex;align-items:center;gap:16px;background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:14px 16px}
+.ring{position:relative;width:88px;height:88px;flex:none}
+.ring svg{display:block;width:100%;height:100%}
+.ring circle{fill:none;stroke-width:11;stroke-linecap:round}
+.ring .trk{stroke:var(--sunken)}
+.ring .arc{stroke:var(--c);opacity:0;stroke-dashoffset:64.5}
+.ring .arc.on{opacity:1;stroke-dashoffset:0}
+.ring .num{position:absolute;inset:0;display:grid;place-items:center;font:700 26px/1 var(--display);font-variant-numeric:tabular-nums}
+.ring .num small{font:500 13px/1 var(--body);color:var(--mute)}
+.hero-txt{min-width:0;display:flex;flex-direction:column;gap:2px}
+.rel{font-size:12px;font-weight:600;color:var(--mute);text-transform:uppercase;letter-spacing:.05em}
+.hero h1{font:700 21px/1.15 var(--display);letter-spacing:-.01em;text-wrap:balance}
+.status{font-size:14px}
+.meta{font-size:13px;color:var(--mute);font-variant-numeric:tabular-nums}
+.link{align-self:flex-start;background:none;border:0;padding:6px 0 0;font-size:13px;font-weight:600;color:var(--men);text-decoration:underline;text-underline-offset:3px}
+
+/* Cartes */
+.cards{display:flex;flex-direction:column;gap:10px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:18px;overflow:hidden;transition:border-color .2s,background-color .2s}
+.card.done{border-color:var(--c);background:color-mix(in srgb,var(--c) 8%,var(--surface))}
+.row{display:flex;align-items:center;gap:12px;width:100%;min-height:62px;padding:11px 14px 9px;background:none;border:0;text-align:left}
+.row:focus-visible{outline-offset:-3px;border-radius:18px}
+.mark{width:6px;align-self:stretch;border-radius:3px;background:var(--c);flex:none}
+.txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.name{font:600 16px/1.25 var(--display)}
+.detail{font-size:13px;color:var(--mute);overflow-wrap:anywhere}
+.stk{color:var(--c);font-weight:600;font-variant-numeric:tabular-nums}
+.check{width:40px;height:40px;border-radius:50%;border:2px solid var(--line);display:grid;place-items:center;flex:none;transition:background-color .18s,border-color .18s}
+.check svg{width:20px;height:20px;fill:none;stroke:var(--on-cat);stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:20;stroke-dashoffset:20}
+.card.done .check{background:var(--c);border-color:var(--c)}
+.card.done .check svg{stroke-dashoffset:0}
+.chips{display:flex;flex-wrap:wrap;gap:6px;padding:2px 14px 13px}
+.chip{min-height:38px;padding:0 12px;border-radius:999px;border:1px solid var(--line);background:none;font:500 14px/1 var(--body);transition:background-color .15s,border-color .15s,color .15s}
+.chip[aria-pressed="true"]{background:var(--c);border-color:var(--c);color:var(--on-cat)}
+.chip.other{color:var(--mute);border-style:dashed}
+.chip.other[aria-expanded="true"]{color:var(--ink);border-style:solid;border-color:var(--ink)}
+.note{padding:0 14px 13px}
+.note input{width:100%;height:44px;border-radius:12px;border:1px solid var(--line);background:var(--bg);font-size:16px;padding:0 12px}
+.note input:focus-visible{outline:2px solid var(--c);outline-offset:1px}
+.hint{text-align:center;font-size:12px;color:var(--mute)}
+
+/* Bilan */
+.range{display:flex;gap:6px}
+.range button{flex:1;min-height:40px;border-radius:12px;border:1px solid var(--line);background:none;font-weight:600;font-size:14px;color:var(--mute)}
+.range button[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:12px 14px}
+.tile b{display:block;font:700 26px/1.1 var(--display);font-variant-numeric:tabular-nums}
+.tile b small{font:500 14px/1 var(--body);color:var(--mute)}
+.tile span{font-size:13px;color:var(--mute)}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:14px;display:flex;flex-direction:column;gap:12px}
+.panel h2{font:600 16px/1.2 var(--display)}
+.brow{display:flex;flex-direction:column;gap:5px}
+.brow .l{display:flex;justify-content:space-between;gap:8px;font-size:14px}
+.brow .l b{font-weight:600}
+.brow .l span{color:var(--mute);font-variant-numeric:tabular-nums;white-space:nowrap}
+.bar{height:8px;border-radius:4px;background:var(--sunken);overflow:hidden}
+.bar i{display:block;height:100%;border-radius:4px;background:var(--c)}
+.brow .a{font-size:12px;color:var(--mute);overflow-wrap:anywhere}
+.months{display:grid;grid-template-columns:repeat(13,1fr);gap:4px;margin-left:20px;font-size:11px;color:var(--mute);white-space:nowrap}
+.months span{overflow:visible;width:0}
+.heatwrap{display:grid;grid-template-columns:14px 1fr;gap:6px}
+.dows{display:grid;grid-template-rows:repeat(7,1fr);gap:4px;font-size:10px;color:var(--mute);align-items:center}
+.heat{display:grid;grid-template-rows:repeat(7,auto);grid-auto-flow:column;grid-auto-columns:1fr;gap:4px}
+.hc{aspect-ratio:1;border-radius:5px;border:0;padding:0;background:var(--sunken)}
+.hc.l1{background:color-mix(in srgb,var(--ink) 22%,var(--sunken))}
+.hc.l2{background:color-mix(in srgb,var(--ink) 45%,var(--sunken))}
+.hc.l3{background:color-mix(in srgb,var(--ink) 68%,var(--sunken))}
+.hc.l4{background:var(--ink)}
+.hc.sel{outline:2px solid var(--men);outline-offset:1px}
+.hc.void{visibility:hidden}
+.legend{display:flex;flex-wrap:wrap;align-items:center;gap:4px;font-size:12px;color:var(--mute)}
+.legend>span:not(.hc):not(.sp){white-space:nowrap}
+.legend .hc{width:12px;flex:none}
+.legend .sp{flex:1}
+
+.install{display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:10px 12px 10px 14px;font-size:14px}
+.install p{flex:1}
+.btn{min-height:40px;padding:0 16px;border-radius:12px;border:1px solid var(--ink);background:var(--ink);color:var(--bg);font-weight:600;font-size:14px;flex:none}
+.btn.ghost{background:none;color:var(--ink);border-color:var(--line)}
+.btns{display:flex;flex-wrap:wrap;gap:8px}
+.small{font-size:13px;color:var(--mute)}
+@media (prefers-reduced-motion:no-preference){
+  .ring .arc{transition:stroke-dashoffset .45s cubic-bezier(.2,.8,.2,1),opacity .12s}
+  .check svg{transition:stroke-dashoffset .22s ease-out .05s}
+  .check,.chip,.pill,.hc{transition-property:background-color,border-color,color,scale;transition-duration:.15s}
+  .row:active .check,.chip:active,.pill:active,.hc:active{scale:.93}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div>
+      <div class="word">4 Victoires</div>
+      <div class="sync" id="sync" role="status"><i></i><span id="sync-t">Chargement…</span></div>
+    </div>
+    <nav class="seg" aria-label="Vue">
+      <a href="#jour" id="tab-jour" aria-current="page">Jour</a>
+      <a href="#bilan" id="tab-bilan">Bilan</a>
+    </nav>
+  </header>
+
+  <main class="view" id="view-jour">
+    <div class="install" id="install" hidden><p>Installe 4 Victoires sur ton écran d’accueil.</p><button class="btn" id="install-btn" type="button">Installer</button></div>
+    <p class="small" role="status" id="install-status" hidden></p>
+    <div class="strip" id="strip" role="group" aria-label="Choisir un jour"></div>
+    <div class="view" id="day">
+      <section class="hero" aria-live="polite">
+        <div class="ring" id="ring">
+          <svg viewBox="0 0 120 120" aria-hidden="true">
+            <g id="arcs"></g>
+          </svg>
+          <div class="num"><span><span id="num">0</span><small>/4</small></span></div>
+        </div>
+        <div class="hero-txt">
+          <div class="rel" id="rel"></div>
+          <h1 id="date"></h1>
+          <p class="status" id="status"></p>
+          <p class="meta" id="meta"></p>
+          <button class="link" id="back" type="button" data-today hidden>Revenir à aujourd’hui</button>
+        </div>
+      </section>
+      <section class="cards" id="cards" aria-label="Les 4 victoires"></section>
+      <p class="hint">Glisse à gauche ou à droite pour changer de jour.</p>
+    </div>
+  </main>
+
+  <main class="view" id="view-bilan" hidden></main>
+</div>
+
+<script>
+(function(){
+"use strict";
+var LANG_KEY="victoires4-lang";
+var LANG=(function(){try{var l=localStorage.getItem(LANG_KEY);if(l==="fr"||l==="ru")return l}catch(e){}
+  return /^ru\b/i.test(navigator.language||"")?"ru":"fr"})();
+function ruPl(n,a,b,c){var m=n%10,h=n%100;return m===1&&h!==11?a:m>=2&&m<=4&&(h<12||h>14)?b:c}
+var TX={
+ fr:{app:"4 Victoires",jour:"Jour",bilan:"Bilan",pick:"Choisir un jour",back:"Revenir à aujourd’hui",wins4:"Les 4 victoires",
+  hint:"Glisse à gauche ou à droite pour changer de jour.",today:"Aujourd’hui",yday:"Hier",ago:function(n){return "Il y a "+n+" jours"},
+  perfect:"Jour parfait.",zeroToday:"4 victoires à aller chercher.",zeroPast:"Aucune victoire notée.",
+  left:function(n){return "Encore "+n+" pour un jour parfait."},got:function(n){return n+" victoire"+(n>1?"s":"")+" sur 4."},
+  meta:function(a,b){return "Série parfaite : "+a+" j · Record : "+b+" j"},done:"Validée",todo:"À valider",
+  row:function(n){return " · "+n+" j de suite"},other:"Autre",noteLbl:"Précision, ",saved:"Enregistré sur ce téléphone",
+  saveErr:"Impossible d’enregistrer : navigation privée ?",period:"Période",days:function(n){return n+" jours"},u:"j",
+  tCur:"Série parfaite en cours",tRec:"Record de série",tPerf:"Jours parfaits",tTot:function(a,b){return a+" victoires sur "+b},
+  byWin:function(n){return "Par victoire, "+n+" derniers jours"},weeks:"13 dernières semaines",dows:["L","M","M","J","V","S","D"],
+  of4:" sur 4",leg4:"4 victoires",tap:"Touche un jour pour l’ouvrir",backup:"Sauvegarde",
+  backupTxt:"Tes victoires sont gardées uniquement sur ce téléphone. Exporte-les de temps en temps, et avant de changer de téléphone.",
+  exp:"Exporter mes données",imp:"Importer une sauvegarde",shareTitle:"Sauvegarde 4 Victoires",shared:"Sauvegarde partagée.",
+  dl:function(f){return "Fichier "+f+" téléchargé."},impd:function(n){return n+" jour"+(n>1?"s":"")+" importé"+(n>1?"s":"")+"."},
+  notBackup:"Ce fichier n’est pas une sauvegarde 4 Victoires.",readErr:"Lecture du fichier impossible.",
+  lang:"Langue",install:"Installe 4 Victoires sur ton écran d’accueil.",installBtn:"Installer",
+  iosInstall:"Pour l’installer : touche Partager, puis « Sur l’écran d’accueil ». Ouvre ensuite toujours 4 Victoires depuis l’icône, c’est là que tes victoires sont gardées.",
+  installed:"4 Victoires est installée.",aborted:"Installation annulée.",installErr:"L’installation n’a pas pu démarrer.",
+  cats:{p:["Victoire physique","Physique","Précise : 5 km, 45 min…"],m:["Victoire mentale","Mentale","Précise : 30 pages, un cours…"],
+        s:["Victoire spirituelle","Spirituelle","Précise : 10 min de méditation…"],f:["Victoire financière","Financière","Précise : 200 € épargnés…"]},
+  acts:{}},
+ ru:{app:"4 Победы",jour:"День",bilan:"Итоги",pick:"Выбрать день",back:"Вернуться к сегодня",wins4:"4 победы",
+  hint:"Проведи влево или вправо, чтобы сменить день.",today:"Сегодня",yday:"Вчера",ago:function(n){return n+" "+ruPl(n,"день","дня","дней")+" назад"},
+  perfect:"Идеальный день.",zeroToday:"Впереди 4 победы.",zeroPast:"Побед не отмечено.",
+  left:function(n){return "Ещё "+n+" до идеального дня."},got:function(n){return n+" из 4 побед."},
+  meta:function(a,b){return "Идеальная серия: "+a+" дн. · Рекорд: "+b+" дн."},done:"Выполнено",todo:"Не выполнено",
+  row:function(n){return " · "+n+" дн. подряд"},other:"Другое",noteLbl:"Уточнение: ",saved:"Сохранено на этом телефоне",
+  saveErr:"Не удалось сохранить: приватный режим?",period:"Период",days:function(n){return n+" "+ruPl(n,"день","дня","дней")},u:"дн.",
+  tCur:"Текущая идеальная серия",tRec:"Рекордная серия",tPerf:"Идеальные дни",tTot:function(a,b){return a+" из "+b+" побед"},
+  byWin:function(n){return "По победам, последние "+n+" "+ruPl(n,"день","дня","дней")},weeks:"Последние 13 недель",dows:["П","В","С","Ч","П","С","В"],
+  of4:" из 4",leg4:"4 победы",tap:"Нажми на день, чтобы открыть",backup:"Резервная копия",
+  backupTxt:"Твои победы хранятся только на этом телефоне. Время от времени делай экспорт, особенно перед сменой телефона.",
+  exp:"Экспортировать данные",imp:"Импортировать копию",shareTitle:"Резервная копия 4 Победы",shared:"Копия отправлена.",
+  dl:function(f){return "Файл "+f+" скачан."},impd:function(n){return "Импортировано дней: "+n+"."},
+  notBackup:"Это не резервная копия 4 Победы.",readErr:"Не удалось прочитать файл.",
+  lang:"Язык",install:"Установи 4 Победы на главный экран.",installBtn:"Установить",
+  iosInstall:"Чтобы установить: нажми «Поделиться», затем «На экран „Домой“». Потом всегда открывай приложение с иконки: там хранятся твои победы.",
+  installed:"Приложение установлено.",aborted:"Установка отменена.",installErr:"Не удалось начать установку.",
+  cats:{p:["Физическая победа","Физическая","Уточни: 5 км, 45 мин…"],m:["Ментальная победа","Ментальная","Уточни: 30 страниц, урок…"],
+        s:["Духовная победа","Духовная","Уточни: 10 минут медитации…"],f:["Финансовая победа","Финансовая","Уточни: отложено 200 €…"]},
+  acts:{"Courir":"Бег","Nager":"Плавание","Marcher":"Ходьба","Lire":"Чтение","Écrire":"Письмо","Créer":"Творчество","Apprendre":"Учёба",
+        "Prier":"Молитва","Méditer":"Медитация","Manifester":"Манифестация","Grandir":"Рост","Gagner":"Заработок","Épargner":"Сбережения","Investir":"Инвестиции"}}
+};
+var T=TX[LANG], LOC=LANG==="ru"?"ru-RU":"fr-FR";
+function actName(a){return T.acts[a]||a}
+var CATS=[
+ {k:"p",n:"Victoire physique",s:"Physique",c:"--phy",acts:["Courir","Nager","Marcher"],ph:"Précise : 5 km, 45 min…"},
+ {k:"m",n:"Victoire mentale",s:"Mentale",c:"--men",acts:["Lire","Écrire","Créer","Apprendre"],ph:"Précise : 30 pages, un cours…"},
+ {k:"s",n:"Victoire spirituelle",s:"Spirituelle",c:"--spi",acts:["Prier","Méditer","Manifester","Grandir"],ph:"Précise : 10 min de méditation…"},
+ {k:"f",n:"Victoire financière",s:"Financière",c:"--fin",acts:["Gagner","Épargner","Investir"],ph:"Précise : 200 € épargnés…"}
+];
+CATS.forEach(function(c){var x=T.cats[c.k];c.n=x[0];c.s=x[1];c.ph=x[2]});
+var LS="victoires4-v2", OLD="victoires4-state", STRIP=91, KEY_RE=/^\d{4}-\d\d-\d\d$/;
+var $=function(id){return document.getElementById(id)};
+var reduce=window.matchMedia?window.matchMedia("(prefers-reduced-motion: reduce)"):{matches:false};
+
+/* ---------- dates ---------- */
+function pad(n){return n<10?"0"+n:""+n}
+function key(d){return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())}
+function parse(k){var a=k.split("-");return new Date(+a[0],a[1]-1,+a[2],12)}
+function shift(k,n){var d=parse(k);d.setDate(d.getDate()+n);return key(d)}
+function mondayOf(k){return shift(k,-((parse(k).getDay()+6)%7))}
+function fmt(k,o){return parse(k).toLocaleDateString(LOC,o)}
+function cap(s){return s.charAt(0).toUpperCase()+s.slice(1)}
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+
+/* ---------- état ---------- */
+var days={}, TODAY=key(new Date()), cur=TODAY, view="jour", range=30, openNote={};
+
+function normCat(v){
+  if(!v||typeof v!=="object")return null;
+  var acts=Array.isArray(v.acts)?v.acts.filter(function(a){return typeof a==="string"&&a}).slice(0,12):[];
+  var note=typeof v.note==="string"?v.note.slice(0,160):"";
+  var done=!!v.done;
+  if(!done&&!acts.length&&!note)return null;
+  return {done:done,acts:acts,note:note};
+}
+function normDay(o){
+  var out={},any=false;
+  if(o&&typeof o==="object")CATS.forEach(function(c){var v=normCat(o[c.k]);if(v){out[c.k]=v;any=true}});
+  return any?out:null;
+}
+function same(a,b){return JSON.stringify(a||null)===JSON.stringify(b||null)}
+function isDone(k,ck){var d=days[k];return !!(d&&d[ck]&&d[ck].done)}
+function count(k){var n=0;CATS.forEach(function(c){if(isDone(k,c.k))n++});return n}
+function streakAll(){var k=TODAY,n=0;if(count(k)<4)k=shift(k,-1);while(count(k)===4){n++;k=shift(k,-1)}return n}
+function streakCat(ck){var k=TODAY,n=0;if(!isDone(k,ck))k=shift(k,-1);while(isDone(k,ck)){n++;k=shift(k,-1)}return n}
+function best(){
+  var ks=Object.keys(days).filter(function(k){return count(k)===4}).sort(),b=0,run=0,prev=null;
+  ks.forEach(function(k){run=(prev&&shift(prev,1)===k)?run+1:1;if(run>b)b=run;prev=k});
+  return b;
+}
+
+/* ---------- stockage sur le téléphone ---------- */
+var saveT=0, storeOk=true;
+function loadLocal(){
+  try{
+    var c=JSON.parse(localStorage.getItem(LS)||"null");
+    days={};
+    if(c&&c.days)Object.keys(c.days).forEach(function(k){var n=KEY_RE.test(k)&&normDay(c.days[k]);if(n)days[k]=n});
+  }catch(e){}
+}
+function saveLocal(){
+  try{localStorage.setItem(LS,JSON.stringify({v:2,days:days}));storeOk=true}catch(e){storeOk=false}
+  paintSync();
+}
+function queue(){clearTimeout(saveT);saveT=setTimeout(saveLocal,120)}
+function paintSync(){
+  $("sync").className="sync "+(storeOk?"ok":"warn");
+  $("sync-t").textContent=storeOk?T.saved:T.saveErr;
+}
+window.addEventListener("storage",function(e){if(e.key===LS){loadLocal();paintAll()}});
+if(navigator.storage&&navigator.storage.persist){try{navigator.storage.persist().catch(function(){})}catch(e){}}
+
+/* ---------- construction ---------- */
+var refs={}, pills={}, arcs=[], strip=$("strip"), dayEl=$("day");
+
+function buildRing(){
+  var C=2*Math.PI*50, L=64.5, h="";
+  CATS.forEach(function(c,i){
+    var rot=-90+i*90+8;
+    h+='<circle class="trk" cx="60" cy="60" r="50" stroke-dasharray="'+L+' '+C+'" transform="rotate('+rot+' 60 60)"/>'+
+       '<circle class="arc" cx="60" cy="60" r="50" stroke-dasharray="'+L+' '+C+'" transform="rotate('+rot+' 60 60)" style="--c:var('+c.c+')"/>';
+  });
+  $("arcs").innerHTML=h;
+  arcs=[].slice.call(document.querySelectorAll("#arcs .arc"));
+}
+function buildCards(){
+  var host=$("cards");
+  CATS.forEach(function(c){
+    var el=document.createElement("article");
+    el.className="card";el.style.setProperty("--c","var("+c.c+")");
+    el.innerHTML=
+      '<button class="row" type="button" aria-pressed="false" data-tog="'+c.k+'">'+
+        '<span class="mark"></span>'+
+        '<span class="txt"><span class="name">'+c.n+'</span><span class="detail"><span class="d1"></span><span class="stk"></span></span></span>'+
+        '<span class="check"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12.5l4 4 8-9"/></svg></span>'+
+      '</button>'+
+      '<div class="chips">'+c.acts.map(function(a){return '<button class="chip" type="button" aria-pressed="false" data-cat="'+c.k+'" data-act="'+a+'">'+esc(actName(a))+'</button>'}).join("")+
+        '<button class="chip other" type="button" aria-expanded="false" data-other="'+c.k+'">'+T.other+'</button></div>'+
+      '<div class="note" hidden><label class="sr" for="note-'+c.k+'">'+T.noteLbl+c.n.toLowerCase()+'</label>'+
+        '<input id="note-'+c.k+'" data-note="'+c.k+'" type="text" maxlength="160" autocomplete="off" enterkeyhint="done" placeholder="'+c.ph+'"></div>';
+    host.appendChild(el);
+    refs[c.k]={el:el,row:el.querySelector(".row"),d1:el.querySelector(".d1"),stk:el.querySelector(".stk"),
+      chips:[].slice.call(el.querySelectorAll("[data-act]")),other:el.querySelector("[data-other]"),
+      note:el.querySelector(".note"),input:el.querySelector("input")};
+  });
+}
+function buildStrip(){
+  strip.textContent="";pills={};
+  for(var i=STRIP-1;i>=0;i--){
+    var k=shift(TODAY,-i),b=document.createElement("button");
+    b.type="button";b.className="pill";b.dataset.day=k;
+    b.setAttribute("aria-label",fmt(k,{weekday:"long",day:"numeric",month:"long"}));
+    b.innerHTML='<span class="wd">'+esc(fmt(k,{weekday:"short"}).replace(".",""))+'</span><span class="dn">'+parse(k).getDate()+'</span>'+
+      '<span class="dots">'+CATS.map(function(c){return '<i style="--c:var('+c.c+')"></i>'}).join("")+'</span>';
+    strip.appendChild(b);pills[k]={el:b,dots:b.querySelectorAll(".dots i")};
+  }
+}
+function centerStrip(smooth){
+  var p=pills[cur];if(!p||!strip.clientWidth)return;
+  var left=p.el.offsetLeft-(strip.clientWidth-p.el.offsetWidth)/2;
+  try{strip.scrollTo({left:left,behavior:smooth&&!reduce.matches?"smooth":"auto"})}catch(e){strip.scrollLeft=left}
+}
+
+/* ---------- affichage ---------- */
+function paintStrip(){
+  Object.keys(pills).forEach(function(k){
+    var p=pills[k];
+    p.el.classList.toggle("today",k===TODAY);
+    if(k===cur)p.el.setAttribute("aria-current","date");else p.el.removeAttribute("aria-current");
+    CATS.forEach(function(c,i){p.dots[i].classList.toggle("on",isDone(k,c.k))});
+  });
+}
+function paintHero(){
+  var n=count(cur),isToday=cur===TODAY,ago=Math.round((parse(TODAY)-parse(cur))/864e5);
+  $("rel").textContent=isToday?T.today:ago===1?T.yday:T.ago(ago);
+  $("date").textContent=cap(fmt(cur,{weekday:"long",day:"numeric",month:"long"}));
+  $("num").textContent=n;
+  CATS.forEach(function(c,i){arcs[i].classList.toggle("on",isDone(cur,c.k))});
+  $("status").textContent=n===4?T.perfect:n===0?(isToday?T.zeroToday:T.zeroPast):(isToday?T.left(4-n):T.got(n));
+  $("meta").textContent=T.meta(streakAll(),best());
+  $("back").hidden=isToday;
+}
+function paintCards(){
+  var d=days[cur]||{};
+  CATS.forEach(function(c){
+    var r=refs[c.k],v=d[c.k]||{done:false,acts:[],note:""},parts=v.acts.map(actName),s=streakCat(c.k);
+    if(v.note.trim())parts.push(v.note.trim());
+    r.el.classList.toggle("done",v.done);
+    r.row.setAttribute("aria-pressed",String(v.done));
+    r.d1.textContent=parts.length?parts.join(" · "):(v.done?T.done:T.todo);
+    r.stk.textContent=s>=2?T.row(s):"";
+    r.chips.forEach(function(ch){ch.setAttribute("aria-pressed",String(v.acts.indexOf(ch.dataset.act)>=0))});
+    var open=!!openNote[c.k]||!!v.note;
+    r.note.hidden=!open;r.other.setAttribute("aria-expanded",String(open));
+    if(document.activeElement!==r.input&&r.input.value!==v.note)r.input.value=v.note;
+  });
+}
+function paintBilan(){
+  var n=range,perfect=0,total=0,per={},acts={},i,k;
+  CATS.forEach(function(c){per[c.k]=0;acts[c.k]={}});
+  for(i=0,k=TODAY;i<n;i++,k=shift(k,-1)){
+    var d=days[k],cnt=0;if(!d)continue;
+    CATS.forEach(function(c){var v=d[c.k];if(v&&v.done){cnt++;per[c.k]++;v.acts.forEach(function(a){acts[c.k][a]=(acts[c.k][a]||0)+1})}});
+    total+=cnt;if(cnt===4)perfect++;
+  }
+  var h='<div class="range" role="group" aria-label="'+T.period+'">'+[7,30,90].map(function(r){
+    return '<button type="button" data-range="'+r+'" aria-pressed="'+(r===n)+'">'+T.days(r)+'</button>'}).join("")+'</div>';
+  h+='<div class="tiles">'+
+    '<div class="tile"><b>'+streakAll()+' <small>'+T.u+'</small></b><span>'+T.tCur+'</span></div>'+
+    '<div class="tile"><b>'+best()+' <small>'+T.u+'</small></b><span>'+T.tRec+'</span></div>'+
+    '<div class="tile"><b>'+perfect+' <small>/ '+n+'</small></b><span>'+T.tPerf+'</span></div>'+
+    '<div class="tile"><b>'+Math.round(total/(4*n)*100)+' <small>%</small></b><span>'+T.tTot(total,4*n)+'</span></div></div>';
+  h+='<section class="panel"><h2>'+T.byWin(n)+'</h2>';
+  CATS.forEach(function(c){
+    var top=Object.keys(acts[c.k]).sort(function(a,b){return acts[c.k][b]-acts[c.k][a]}).slice(0,4)
+      .map(function(a){return esc(actName(a))+" ×"+acts[c.k][a]}).join(" · "),s=streakCat(c.k);
+    h+='<div class="brow" style="--c:var('+c.c+')"><div class="l"><b>'+c.s+'</b><span>'+per[c.k]+' / '+n+(s>=2?T.row(s):'')+'</span></div>'+
+       '<div class="bar"><i style="width:'+(per[c.k]/n*100).toFixed(1)+'%"></i></div>'+(top?'<div class="a">'+top+'</div>':'')+'</div>';
+  });
+  h+='</section>';
+  var start=mondayOf(shift(TODAY,-84)),end=shift(mondayOf(TODAY),6),cells="",months="",lastM=-1;
+  for(k=start,i=0;k<=end;k=shift(k,1),i++){
+    if(i%7===0){var m=parse(k).getMonth();months+='<span>'+(m!==lastM?esc(fmt(k,{month:"short"})):"")+'</span>';lastM=m}
+    if(k>TODAY){cells+='<span class="hc void"></span>';continue}
+    var lv=count(k);
+    cells+='<button type="button" class="hc l'+lv+(k===cur?" sel":"")+'" data-day="'+k+'" aria-label="'+esc(fmt(k,{day:"numeric",month:"long"}))+': '+lv+T.of4+'"></button>';
+  }
+  h+='<section class="panel"><h2>'+T.weeks+'</h2><div><div class="months">'+months+'</div>'+
+     '<div class="heatwrap"><div class="dows" aria-hidden="true">'+T.dows.map(function(d){return '<span>'+d+'</span>'}).join('')+'</div>'+
+     '<div class="heat">'+cells+'</div></div></div>'+
+     '<div class="legend"><span>0</span><span class="hc"></span><span class="hc l1"></span><span class="hc l2"></span><span class="hc l3"></span><span class="hc l4"></span><span>'+T.leg4+'</span><span class="sp"></span><span>'+T.tap+'</span></div></section>';
+  h+='<section class="panel"><h2>'+T.backup+'</h2><p class="small">'+T.backupTxt+'</p>'+
+     '<div class="btns"><button class="btn" type="button" data-export>'+T.exp+'</button>'+
+     '<button class="btn ghost" type="button" data-import>'+T.imp+'</button></div>'+
+     '<input type="file" id="import-file" accept="application/json,.json" hidden><p class="small" id="backup-status" role="status"></p></section>'+
+     '<section class="panel"><h2>Langue · Язык</h2><div class="range" role="group" aria-label="'+T.lang+'">'+
+     '<button type="button" data-lang="fr" lang="fr" aria-pressed="'+(LANG==="fr")+'">Français</button>'+
+     '<button type="button" data-lang="ru" lang="ru" aria-pressed="'+(LANG==="ru")+'">Русский</button></div></section>';
+  $("view-bilan").innerHTML=h;
+}
+function paintJour(){paintStrip();paintHero();paintCards()}
+function paintAll(){paintJour();if(view==="bilan")paintBilan()}
+
+/* ---------- actions ---------- */
+function buzz(p){try{if(navigator.vibrate)navigator.vibrate(p)}catch(e){}}
+function cat(ck){var d=days[cur]||(days[cur]={});return d[ck]||(d[ck]={done:false,acts:[],note:""})}
+function commit(){
+  var before=arguments[0],n=normDay(days[cur]);
+  if(n)days[cur]=n;else delete days[cur];
+  queue(cur);paintJour();
+  if(before<4&&count(cur)===4){
+    buzz([14,50,24]);
+    if(!reduce.matches&&$("ring").animate)$("ring").animate([{transform:"scale(1)"},{transform:"scale(1.09)"},{transform:"scale(1)"}],{duration:480,easing:"cubic-bezier(.2,.8,.2,1)"});
+  }
+}
+function toggle(ck){
+  var b=count(cur),v=cat(ck);v.done=!v.done;
+  if(v.done)buzz(10);else v.acts=[];
+  commit(b);
+}
+function toggleAct(ck,a){
+  var b=count(cur),v=cat(ck),i=v.acts.indexOf(a);
+  if(i>=0)v.acts.splice(i,1);else{v.acts.push(a);if(!v.done){v.done=true;buzz(10)}}
+  commit(b);
+}
+function setNote(ck,text){
+  var b=count(cur),v=cat(ck);
+  if(v.note===text){var n=normDay(days[cur]);if(n)days[cur]=n;else delete days[cur];return}
+  v.note=text;if(text.trim()&&!v.done){v.done=true;buzz(10)}
+  commit(b);
+}
+function select(k,dir){
+  if(!KEY_RE.test(k)||k>TODAY||k===cur)return;
+  if(document.activeElement&&document.activeElement.blur)document.activeElement.blur();
+  cur=k;openNote={};paintJour();centerStrip(true);
+  if(dir&&!reduce.matches&&dayEl.animate)dayEl.animate([{opacity:.25,transform:"translateX("+(dir>0?22:-22)+"px)"},{opacity:1,transform:"none"}],{duration:200,easing:"cubic-bezier(.2,.8,.2,1)"});
+}
+function go(delta){select(shift(cur,delta),delta)}
+function setView(v){
+  view=v==="bilan"?"bilan":"jour";
+  $("view-jour").hidden=view!=="jour";$("view-bilan").hidden=view!=="bilan";
+  ["jour","bilan"].forEach(function(n){var a=$("tab-"+n);if(n===view)a.setAttribute("aria-current","page");else a.removeAttribute("aria-current")});
+  if(view==="bilan")paintBilan();else{paintJour();centerStrip(false)}
+}
+
+document.addEventListener("click",function(e){
+  var t=e.target.closest("[data-tog],[data-act],[data-other],[data-day],[data-today],[data-range],[data-lang],.seg a");
+  if(!t)return;
+  if(t.matches(".seg a")){e.preventDefault();var v=t.id==="tab-bilan"?"bilan":"jour";setView(v);try{location.hash=v}catch(_){};return}
+  if(t.dataset.tog)return toggle(t.dataset.tog);
+  if(t.dataset.act)return toggleAct(t.dataset.cat,t.dataset.act);
+  if(t.dataset.other){
+    var ck=t.dataset.other,r=refs[ck],has=!!(days[cur]&&days[cur][ck]&&days[cur][ck].note);
+    if(has){r.input.focus();return}
+    openNote[ck]=!openNote[ck];paintCards();if(openNote[ck])r.input.focus();return;
+  }
+  if(t.dataset.range){range=+t.dataset.range;paintBilan();return}
+  if(t.dataset.lang){if(t.dataset.lang!==LANG){try{localStorage.setItem(LANG_KEY,t.dataset.lang)}catch(_){};location.hash="bilan";location.reload()}return}
+  if(t.hasAttribute("data-today")){select(TODAY,1);return}
+  if(t.dataset.day){
+    var k=t.dataset.day,dir=k>cur?1:-1;
+    if(view==="bilan"){setView("jour");try{location.hash="jour"}catch(_){}}
+    select(k,dir);if(k===cur)centerStrip(false);
+  }
+});
+function exportData(){
+  var json=JSON.stringify({app:"4-victoires",v:2,exported:new Date().toISOString(),days:days},null,1);
+  var name="4-victoires-"+TODAY+".json",st=$("backup-status");
+  try{
+    var file=new File([json],name,{type:"application/json"});
+    if(navigator.canShare&&navigator.canShare({files:[file]})){
+      navigator.share({files:[file],title:T.shareTitle}).then(function(){st.textContent=T.shared},function(){});
+      return;
+    }
+  }catch(e){}
+  var a=document.createElement("a");a.href=URL.createObjectURL(new Blob([json],{type:"application/json"}));a.download=name;
+  document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},1000);
+  st.textContent=T.dl(name);
+}
+function importData(file){
+  var st=$("backup-status"),r=new FileReader();
+  r.onload=function(){
+    try{
+      var o=JSON.parse(r.result),n=0;
+      if(!o||!o.days||typeof o.days!=="object")throw 0;
+      Object.keys(o.days).forEach(function(k){var d=KEY_RE.test(k)&&normDay(o.days[k]);if(d){days[k]=d;n++}});
+      saveLocal();paintAll();
+      $("backup-status").textContent=T.impd(n);
+    }catch(e){st.textContent=T.notBackup}
+  };
+  r.onerror=function(){st.textContent=T.readErr};
+  r.readAsText(file);
+}
+document.addEventListener("change",function(e){if(e.target.id==="import-file"&&e.target.files[0]){importData(e.target.files[0]);e.target.value=""}});
+document.addEventListener("click",function(e){
+  if(e.target.closest("[data-export]"))exportData();
+  else if(e.target.closest("[data-import]"))$("import-file").click();
+});
+document.addEventListener("input",function(e){var ck=e.target.dataset&&e.target.dataset.note;if(ck)setNote(ck,e.target.value)});
+document.addEventListener("change",function(e){
+  var ck=e.target.dataset&&e.target.dataset.note;if(!ck)return;
+  var t=e.target.value.trim();e.target.value=t;setNote(ck,t);if(!t){openNote[ck]=false;paintCards()}
+});
+document.addEventListener("keydown",function(e){
+  var inInput=e.target.tagName==="INPUT";
+  if(e.key==="Enter"&&inInput){e.target.blur();return}
+  if(inInput||view!=="jour"||e.altKey||e.ctrlKey||e.metaKey)return;
+  if(e.key==="ArrowLeft")go(-1);else if(e.key==="ArrowRight")go(1);
+});
+(function(){ // glisser pour changer de jour
+  var sx=0,sy=0,st=0,ok=false,el=$("view-jour");
+  el.addEventListener("touchstart",function(e){
+    var t=e.target;ok=e.touches.length===1&&!t.closest(".strip")&&t.tagName!=="INPUT";
+    if(ok){sx=e.touches[0].clientX;sy=e.touches[0].clientY;st=Date.now()}
+  },{passive:true});
+  el.addEventListener("touchend",function(e){
+    if(!ok)return;ok=false;
+    var c=e.changedTouches[0],dx=c.clientX-sx,dy=c.clientY-sy;
+    if(Math.abs(dx)>60&&Math.abs(dx)>2*Math.abs(dy)&&Date.now()-st<700)go(dx<0?1:-1);
+  },{passive:true});
+})();
+window.addEventListener("hashchange",function(){setView(location.hash==="#bilan"?"bilan":"jour")});
+function wake(){ // passage de minuit, retour sur la page
+  if(document.hidden)return;
+  var t=key(new Date());
+  if(t!==TODAY){var was=cur===TODAY;TODAY=t;if(was)cur=t;buildStrip();paintAll();centerStrip(false)}
+}
+document.addEventListener("visibilitychange",wake);
+window.addEventListener("focus",wake);
+window.addEventListener("pagehide",function(){clearTimeout(saveT);saveLocal()});
+document.addEventListener("visibilitychange",function(){if(document.hidden){clearTimeout(saveT);saveLocal()}});
+
+/* ---------- textes fixes ---------- */
+(function(){
+  document.documentElement.lang=LANG;document.title=T.app;
+  var mt=document.querySelector('meta[name="apple-mobile-web-app-title"]');if(mt)mt.setAttribute("content",T.app);
+  document.querySelector(".word").textContent=T.app;
+  $("tab-jour").textContent=T.jour;$("tab-bilan").textContent=T.bilan;
+  $("install").querySelector("p").textContent=T.install;$("install-btn").textContent=T.installBtn;
+  strip.setAttribute("aria-label",T.pick);$("back").textContent=T.back;
+  $("cards").setAttribute("aria-label",T.wins4);document.querySelector(".hint").textContent=T.hint;
+})();
+
+/* ---------- installation ---------- */
+(function(){
+  var box=$("install"),btn=$("install-btn"),st=$("install-status"),deferred=null;
+  var standalone=(window.matchMedia&&matchMedia("(display-mode: standalone)").matches)||navigator.standalone===true;
+  var webInstall=typeof Navigator!=="undefined"&&typeof Navigator.prototype.install==="function";
+  if(standalone)return;
+  var ios=/iPhone|iPad|iPod/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
+  if(ios){
+    box.querySelector("p").textContent=T.iosInstall;
+    btn.hidden=true;box.hidden=false;return;
+  }
+  if(webInstall)box.hidden=false;
+  window.addEventListener("beforeinstallprompt",function(e){e.preventDefault();deferred=e;if(!webInstall)box.hidden=false});
+  window.addEventListener("appinstalled",function(){box.hidden=true});
+  btn.addEventListener("click",function(){
+    if(btn.getAttribute("aria-disabled")==="true")return;
+    btn.setAttribute("aria-disabled","true");
+    var p;
+    if(webInstall)p=navigator.install();
+    else if(deferred){var ev=deferred;deferred=null;p=ev.prompt().then(function(){return ev.userChoice}).then(function(r){if(r.outcome!=="accepted")throw {name:"AbortError"}})}
+    else p=Promise.reject({name:"AbortError"});
+    p.then(function(){box.hidden=true;st.hidden=false;st.textContent=T.installed},
+      function(err){st.hidden=false;st.textContent=err&&err.name==="AbortError"?T.aborted:T.installErr;if(!webInstall&&!deferred)box.hidden=true})
+     .then(function(){btn.removeAttribute("aria-disabled")});
+  });
+})();
+if("serviceWorker" in navigator&&location.protocol!=="file:"){
+  window.addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){})});
+}
+
+/* ---------- démarrage ---------- */
+loadLocal();buildRing();buildCards();buildStrip();
+setView(location.hash==="#bilan"?"bilan":"jour");paintSync();
+requestAnimationFrame(function(){centerStrip(false)});
+})();
+</script>
+</body>
+</html>
